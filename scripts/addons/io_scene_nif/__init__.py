@@ -76,7 +76,7 @@ else:
     import bpy
     import bpy.props
     
-    from . import properties, ui, operators
+    from . import properties, ui, operators, collisions
 
     # blender doesn't look in site-packages; 
     #easiest solution for this seems to be to import site.py manually, 

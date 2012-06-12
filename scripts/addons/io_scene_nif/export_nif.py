@@ -58,6 +58,7 @@ class NifExportError(Exception):
 
 # main export class
 class NifExport(NifCommon):
+    
     IDENTITY44 = NifFormat.Matrix44()
     IDENTITY44.set_identity()
     FLOAT_MIN = -3.4028234663852886e+38
@@ -181,8 +182,8 @@ class NifExport(NifCommon):
         return exported_objects
 
     def execute(self):
-        """Main export function."""
-
+        """Main export function."""     
+        
         self.info("exporting {0}".format(self.properties.filepath))
 
         # TODO
@@ -3569,7 +3570,7 @@ class NifExport(NifCommon):
         layer = b_obj.nifcollision.oblivion_layer
         motion_system = b_obj.nifcollision.motion_system
         quality_type = b_obj.nifcollision.quality_type
-        mass = 1.0 # will be fixed later
+        mass = b_obj.game.mass # will be fixed later
         col_filter = b_obj.nifcollision.col_filter
         
         #Aaron1178 collison stuff
@@ -3577,64 +3578,6 @@ class NifExport(NifCommon):
         #export bsxFlags
         self.export_bsx_upb_flags(b_obj, parent_block)
         '''
-        
-        '''Customs User Properties'''
-        
-        # copy physics properties from Blender properties, if they exist,
-        # unless forcing override
-        if not b_obj.nifcollision.use_blender_properties:
-            if b_obj.get('HavokMaterial'):
-                prop = b_obj.get('HavokMaterial')
-                if prop.type == str(prop):
-                    # for Anglicized names
-                    if prop.data in self.HAVOK_MATERIAL:
-                        material = self.HAVOK_MATERIAL.index(prop)
-                    # for the real Nif Format material names
-                    else:
-                        material = getattr(NifFormat.HavokMaterial, prop)
-                # or if someone wants to set the material by the number
-                elif prop.type == int(prop):
-                    material = prop
-            elif b_obj.get('OblivionLayer'):
-                prop = b_obj.get('OblivionLayer')
-                if prop == str(prop):
-                    # for Anglicized names
-                    if prop in self.OB_LAYER:
-                        layer = self.OB_LAYER.index(prop)
-                    # for the real Nif Format layer names
-                    else:
-                        layer = getattr(NifFormat.OblivionLayer, prop)
-                # or if someone wants to set the layer by the number
-                elif prop == int(prop):
-                    layer = prop
-            elif b_obj.get('QualityType'):
-                prop = b_obj.get('QualityType')
-                if prop == str(prop):
-                    # for Anglicized names
-                    if prop in self.QUALITY_TYPE:
-                        quality_type = self.QUALITY_TYPE.index(prop)
-                    # for the real Nif Format MoQual names
-                    else:
-                        quality_type = getattr(NifFormat.MotionQuality, prop)
-                # or if someone wants to set the Motion Quality by the number
-                elif prop.type == int(prop):
-                    quality_type = prop
-            elif b_obj.get('MotionSystem'):
-                prop = b_obj.get('MotionSystem')
-                if prop == str(prop):
-                    # for Anglicized names
-                    if prop in self.MOTION_SYS:
-                        motion_system = self.MOTION_SYS.index(prop)
-                    # for the real Nif Format Motion System names
-                    else:
-                        motion_system = getattr(NifFormat.MotionSystem, prop)
-                # or if someone wants to set the Motion System  by the number
-                elif prop.type == int(prop):
-                    motion_system = prop
-            elif b_obj.get('Mass') and b_obj.get('Mass') == float(prop):
-                mass = b_obj.get('Mass')
-            elif b_obj.get('ColFilter') and b_obj.get('ColFilter') == int(prop):
-                col_filter = b_obj.get('ColFilter')
 
         # if no collisions have been exported yet to this parent_block
         # then create new collision tree on parent_block
@@ -3830,9 +3773,12 @@ class NifExport(NifCommon):
         maxx = max([b_vert[0] for b_vert in b_vertlist])
         maxy = max([b_vert[1] for b_vert in b_vertlist])
         maxz = max([b_vert[2] for b_vert in b_vertlist])
+        
+        
 
         if b_obj.game.collision_bounds_type in {'BOX', 'SPHERE'}:
             # note: collision settings are taken from lowerclasschair01.nif
+            #TODO 3.0 - investigate settings
             coltf = self.create_block("bhkConvexTransformShape", b_obj)
             coltf.material = n_havok_material
             coltf.unknown_float_1 = 0.1
@@ -3943,8 +3889,9 @@ class NifExport(NifCommon):
             mesh = b_obj.data
             transform = mathutils.Matrix(
                 self.get_object_matrix(b_obj, 'localspace').as_list())
-            rotation = transform.to_scale()
-            scale = rotation.determinant()
+            
+            rotation = transform.to_euler()
+            scale = transform.to_scale()
             if scale < 0:
                 scale = - (-scale) ** (1.0 / 3)
             else:
@@ -3956,7 +3903,7 @@ class NifExport(NifCommon):
             fnormlist = [ face.normal * rotation
                           for face in mesh.faces]
             fdistlist = [
-                (-face.v[0].co * transform).dot(face.normal * rotation)
+                (-face.vertices[0].co * transform).dot(face.normal * rotation)
                 for face in mesh.faces ]
 
             # remove duplicates through dictionary
